@@ -1,0 +1,170 @@
+{
+  "metadata": {
+    "kernelspec": {
+      "name": "node_nteract",
+      "language": "javascript",
+      "display_name": "Node.js (nteract)"
+    },
+    "kernel_info": {
+      "name": "node_nteract"
+    },
+    "language_info": {
+      "name": "javascript",
+      "version": "8.2.1",
+      "mimetype": "application/javascript",
+      "file_extension": ".js"
+    },
+    "title": "WepSIM ",
+    "nteract": {
+      "version": "nteract-on-jupyter@2.0.0"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "source": "## mode",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "ep",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "mode",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## firmware",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "lui RRE1 U32 {\n\t    co=010010,\n\t    nwords=2,\n\t    RRE1=reg(25,21),\n\t    U32=inm(63,32),\n\t    {\n     # MAR <- PC:  \n\t\t(T2, C0),\n     # MBR <- Memory [MAR]: \n\t\t(TA, R, BW=11, M1=1, C1), \n     # BR[RRE1] <- MBR:\n\t\t(SELC=10101, T1, LC,\n     # PC<- PC+4 (PC <- address of next instruction):\n  \tM2=1, C2,\n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nsw RRE1 (RRE2) {\n\t    co=010000,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE2]:  \n\t\t(SELA=10000, MR=0, T9, C0),\n     # MBR <- BR[RRE1]: \n\t\t(SELB=10101, MR=0, T10, M1=0, C1),\n     # Memory [MAR] <- MBR:\n\t\t(TA, TD, W, BW=11, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nlw RRE1 (RRE2) {\n\t    co=010011,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE2]:  \n\t\t(SELA=10000, MR=0, T9, C0),\n     # MBR <- Memory [MAR]: \n\t\t(TA, R, BW=11, M1, C1),\n     # BR[RRE1] <- MBR:\n\t\t(T1, SELC=10101, LC=1, MR=0, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nadd RRE1 RRE2 RRE3 {\n\t    co=011000,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n      RRE3=reg(15,11),\n\t    {\n     # BR[RRE1] <- BR[RRE2]+BR[RRE3]:  \n\t\t(MR=0, SELA=10000, SELB=01011, MC=1, MA=0, MB=00, SELCOP=1010, T6, SELC=10101, LC=1,\n     # SR Update: \n\t\tSELP=11, M7=1, C7), \n     # Jump to fetch: \n    (A0, B, C=0)\n\t    }\n}\n\nmul_add RRE1 RRE2 RRE3 RRE4 {\n\t    co=011001,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n      RRE3=reg(15,11),\n      RRE4=reg(10,6),\n\t    {\n     # RT1 <- BR[RRE2]*BR[RRE3]: \n\t\t(MR=0, SELA=10000, SELB=01011, MC=1, MA=0, MB=00, SELCOP=1100, T6, C4)\n     # BR[RRE1] <- RT1+BR[RRE4]:  \n\t\t(MR=0, SELB=00110, MC=1, MA=1, MB=00, SELCOP=1010, T6, SELC=10101, LC=1,\n     # SR Update: \n\t\tSELP=11, M7=1, C7), \n     # Jump to fetch: \n    (A0, B, C=0)\n\t    }\n}\n\nbeq RRE1 RRE2 S10 {\n            co=001101,\n            nwords=1,\n            RRE1=reg(25,21),\n            RRE2=reg(20,16),\n            S10=address(9,0)rel,\n            {\n              \t# RT2 <- SR:\n                (T8, C5),\n                # SR <- BR[RRE1] - BR[RRE2]:\n                (SELA=10101, SELB=10000, MC=1, SELCOP=1011, SELP=11, M7, C7),\n                # Conditional Jump to MADDR:  \n                (A0=0, B=1, C=110, MADDR=bck2ftch),\n                # SR <- RT2\n                (T5, M7=0, C7),\n                # RT1 <- PC  \n                (T2, C4),\n                # RT2 <- IR(S10)\n                (SE=1, OFFSET=0, SIZE=01010, T3, C5),\n                # Jump to fetch\n                (MA=1, MB=1, MC=1, SELCOP=1010, T6, M2=0, C2, A0=1, B=1, C=0),\n      bck2ftch: (T5, M7=0, C7),\n                (A0=1, B=1, C=0)\n            }\n}\n\njal U16 {\n\t    co=100001,\n\t    nwords=1,\n\t    U16=address(15,0)abs,\n\t    {\n     # BR[R1] <- PC:  \n\t\t(T2, MR=1, SELC=00001, LC),\n     # PC <- IR(U16): \n\t\t(SIZE=10000, OFFSET=00000, T3, M2=0, C2, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\njr_ra {\n\t    co=100010,\n\t    nwords=1,\n\t    {\n     # PC <- BR[R1]:  \n\t\t(MR=1, SELA=00001, T9, M2=0, C2, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nhalt {\n\t    co=100011,\n\t    nwords=1,\n\t    {\n     # PC <- BR[R0]:  \n\t\t(MR=1, SELA=00000, T9, M2=0, C2),\n     # SR <- BR[R0]:  \n\t\t(MR=1, SELA=00000, T9, M7=0, C7)\n\t    }\n}\n\nxchb (RRE1) (RRE2) {\n\t    co=011010,\n      nwords=1,\n      RRE1=reg(25,21),  \n      RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE1]:  \n\t\t(SELA=10101, T9, C0),\n     #: MBR <- Memory [MAR]:  \n\t\t(TA, R, BW=00, M1=1, C1),\n     #: RT1 <- MBR: \n\t\t(T1, C4),\n     #: MAR <- BR[RRE2]: \n\t\t(SELB=10000, T10, C0),\n     #: MBR <- Memory [MAR] \n\t\t(TA, R, BW=00, M1=1, C1),\n     #: MAR <- BR[RRE1]: \n\t\t(SELA=10101, T9, C0),\n     #: Memory [MAR] <- MBR \n\t\t(TA, TD, W, BW=00),\n     #: MBR <- RT1\n\t\t(T4, M1=0, C1),\n     #: MBR <- BR[RRE2]\n\t\t(SELB=10000, T10, C0),\n     #: Memory [MAR] <- MBR\n\t\t(TA, W, TD, BW=00,\n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "firmware",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## assembly",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "assembly",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## state_current",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "{\n  \"time\": 1670182790575,\n  \"title\": \"clock 1 @ &#181;address 0\",\n  \"title_short\": \"clock 1,<br>&#181;add 0\",\n  \"content\": \"register R2 = 0x100000; register PC = 0x8000; memory 0x1018 = 0x1000100; memory 0x101c = 0x1010100; memory 0x1020 = 0x1010100; memory 0x1024 = 0x1010100; memory 0x1028 = 0x1000100; memory 0x1030 = 0x1000100; memory 0x1034 = 0x1000100; memory 0x1038 = 0x1000100; memory 0x103c = 0x1000100; memory 0x1040 = 0x1000100; memory 0x1048 = 0x1010100; memory 0x104c = 0x1010100; memory 0x1050 = 0x1010100; memory 0x1054 = 0x1010100; memory 0x1058 = 0x1010100; memory 0x1060 = 0x1000100; memory 0x1064 = 0x1000100; memory 0x1068 = 0x100; memory 0x106c = 0x100; memory 0x1070 = 0x1000000; memory 0x1078 = 0x1000100; memory 0x107c = 0x1000100; memory 0x1080 = 0x100; memory 0x1084 = 0x100; memory 0x1088 = 0x1010100; memory 0x10c0 = 0x1000100; memory 0x10c4 = 0x1010100; memory 0x10c8 = 0x1010100; memory 0x10cc = 0x1010100; memory 0x10d8 = 0x1000100; memory 0x10dc = 0x100; memory 0x10e0 = 0x1000100; memory 0x10e4 = 0x1000100; memory 0x10f0 = 0x1010100; memory 0x10f4 = 0x1010100; memory 0x10f8 = 0x1010100; memory 0x10fc = 0x1000100; memory 0x1108 = 0x1000000; memory 0x110c = 0x100; memory 0x1110 = 0x1000100; memory 0x1114 = 0x10100; memory 0x1120 = 0x1010100; memory 0x1124 = 0x1010100; memory 0x1128 = 0x1000100; memory 0x112c = 0x1000100; memory 0x1168 = 0x1010100; memory 0x116c = 0x1010100; memory 0x1170 = 0x1010100; memory 0x1174 = 0x1010100; memory 0x1178 = 0x10000; memory 0x1180 = 0x1000000; memory 0x1184 = 0x1000100; memory 0x1188 = 0x1000000; memory 0x118c = 0x1000000; memory 0x1190 = 0x10000; memory 0x1198 = 0x1010100; memory 0x119c = 0x1000100; memory 0x11a0 = 0x1010100; memory 0x11a4 = 0x1010100; memory 0x11a8 = 0x10000; memory 0x11b0 = 0x100; memory 0x11b4 = 0x1000100; memory 0x11b8 = 0x100; memory 0x11bc = 0x100; memory 0x11c8 = 0x1010100; memory 0x11cc = 0x1010100; memory 0x11d0 = 0x1010100; memory 0x11d4 = 0x1010100; memory 0x11d8 = 0x10000; memory 0x8000 = 0x49400000; memory 0x8004 = 0x1000; memory 0x8008 = 0x84008010; memory 0x800c = 0x8c000000; memory 0x8010 = 0x63a00800; memory 0x8014 = 0x48a00000; memory 0x801c = 0x48c00000; memory 0x8020 = 0x1; memory 0x8024 = 0x48e00000; memory 0x8028 = 0x17; memory 0x802c = 0x34a7004c; memory 0x8030 = 0x63853000; memory 0x8034 = 0x37870034; memory 0x8038 = 0x4bc00000; memory 0x803c = 0x18; memory 0x8040 = 0x67de2f00; memory 0x8044 = 0x63caf000; memory 0x8048 = 0x4be00000; memory 0x804c = 0x18; memory 0x8050 = 0x67ffe140; memory 0x8054 = 0x63eaf800; memory 0x8058 = 0x6bdf0000; memory 0x805c = 0x639c3000; memory 0x8060 = 0x48200000; memory 0x8064 = 0x8034; memory 0x8068 = 0x88000000; memory 0x806c = 0x60a53000; memory 0x8070 = 0x48200000; memory 0x8074 = 0x802c; memory 0x8078 = 0x88000000; memory 0x807c = 0x49400000; memory 0x8080 = 0x1; memory 0x8084 = 0x4bc00000; memory 0x8088 = 0x1000; memory 0x808c = 0x7c03108; memory 0x8090 = 0x4bc00000; memory 0x8094 = 0x20; memory 0x8098 = 0x7c03104; memory 0x809c = 0x6020e800; memory 0x80a0 = 0x88000000; \"\n}",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "state_current",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## state_history",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "[]",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "state_history",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## record",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "[]",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "record",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## tag",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "4/12/2022, 20:39:42",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "tag",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## notify",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "true",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "notify",
+        "type": "boolean",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    }
+  ]
+}

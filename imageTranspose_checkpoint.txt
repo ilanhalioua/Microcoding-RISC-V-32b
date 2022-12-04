@@ -1,0 +1,170 @@
+{
+  "metadata": {
+    "kernelspec": {
+      "name": "node_nteract",
+      "language": "javascript",
+      "display_name": "Node.js (nteract)"
+    },
+    "kernel_info": {
+      "name": "node_nteract"
+    },
+    "language_info": {
+      "name": "javascript",
+      "version": "8.2.1",
+      "mimetype": "application/javascript",
+      "file_extension": ".js"
+    },
+    "title": "WepSIM ",
+    "nteract": {
+      "version": "nteract-on-jupyter@2.0.0"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "source": "## mode",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "ep",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "mode",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## firmware",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "\n#\n# WepSIM (https://wepsim.github.io/wepsim/)\n#\n\n# Begin\n\nbegin\n{\n    fetch:\t    # MAR <- PC\n                # MBR <- Mem[MAR]\n                # IR  <- MBR, PC <- PC + 4\n                # jump to associated microcode for op. code\n\t\t\t\t\t\t\t  (T2, C0),\n                (TA, R, BW=11, M1=1, C1=1),\n                (M2=1, C2, T1, C3),\n                (A0, B=0, C=0)\n}\n\n\n# In/Out\n\nin reg val {\n\t    co=111111,\n\t    nwords=1,\n\t    reg=reg(25,21),\n\t    val=inm(15,0),\n\t    help='reg = device_registers[val]',\n\t    {\n\t\t(SE=0, OFFSET=0, SIZE=10000, T3=1, C0=1),\n\t\t(TA=1, IOR=1, BW=11, M1=1, C1=1),\n\t\t(T1=1, LC=1,  MR=0, SELC=10101, A0=1, B=1, C=0)\n\t    }\n}\n\nout reg val {\n\t    co=111111,\n\t    nwords=1,\n\t    reg=reg(25,21),\n\t    val=inm(15,0),\n\t    help='device_register[val] = reg',\n\t    {\n\t\t(SE=0, OFFSET=0,   SIZE=10000,   T3=1, C0=1),\n\t\t(MR=0, SELA=10101, T9=1,\t M1=0, C1=1),\n\t\t(TA=1, TD=1,       IOW=1, BW=11, A0=1, B=1, C=0)\n\t    }\n}\n\nlui RRE1 U32 {\n\t    co=010010,\n\t    nwords=2,\n\t    RRE1=reg(25,21),\n\t    U32=inm(63,32),\n\t    {\n     # MAR <- PC:  \n\t\t(T2, C0),\n     # MBR <- Memory [MAR]: \n\t\t(TA, R, BW=11, M1=1, C1), \n     # BR[RRE1] <- MBR:\n\t\t(SELC=10101, T1, LC,\n     # PC<- PC+4 (PC <- address of next instruction):\n  \tM2=1, C2,\n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nsw RRE1 (RRE2) {\n\t    co=010000,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE2]:  \n\t\t(SELA=10000, MR=0, T9, C0),\n     # MBR <- BR[RRE1]: \n\t\t(SELB=10101, MR=0, T10, M1=0, C1),\n     # Memory [MAR] <- MBR:\n\t\t(TA, TD, W, BW=11, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nlw RRE1 (RRE2) {\n\t    co=010011,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE2]:  \n\t\t(SELA=10000, MR=0, T9, C0),\n     # MBR <- Memory [MAR]: \n\t\t(TA, R, BW=11, M1, C1),\n     # BR[RRE1] <- MBR:\n\t\t(T1, SELC=10101, LC=1, MR=0, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nadd RRE1 RRE2 RRE3 {\n\t    co=011000,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n      RRE3=reg(15,11),\n\t    {\n     # BR[RRE1] <- BR[RRE2]+BR[RRE3]:  \n\t\t(MR=0, SELA=10000, SELB=01011, MC=1, MA=0, MB=00, SELCOP=1010, T6, SELC=10101, LC=1,\n     # SR Update: \n\t\tSELP=11, M7=1, C7), \n     # Jump to fetch: \n    (A0, B, C=0)\n\t    }\n}\n\nmul_add RRE1 RRE2 RRE3 RRE4 {\n\t    co=011001,\n\t    nwords=1,\n\t    RRE1=reg(25,21),\n\t    RRE2=reg(20,16),\n      RRE3=reg(15,11),\n      RRE4=reg(10,6),\n\t    {\n     # RT1 <- BR[RRE2]*BR[RRE3]: \n\t\t(MR=0, SELA=10000, SELB=01011, MC=1, MA=0, MB=00, SELCOP=1100, T6, C4)\n     # BR[RRE1] <- RT1+BR[RRE4]:  \n\t\t(MR=0, SELB=00110, MC=1, MA=1, MB=00, SELCOP=1010, T6, SELC=10101, LC=1,\n     # SR Update: \n\t\tSELP=11, M7=1, C7), \n     # Jump to fetch: \n    (A0, B, C=0)\n\t    }\n}\n\nbeq RRE1 RRE2 S10 {\n            co=001101,\n            nwords=1,\n            RRE1=reg(25,21),\n            RRE2=reg(20,16),\n            S10=address(9,0)rel,\n            {\n              \t# RT2 <- SR:\n                (T8, C5),\n                # SR <- BR[RRE1] - BR[RRE2]:\n                (SELA=10101, SELB=10000, MC=1, SELCOP=1011, SELP=11, M7, C7),\n                # Conditional Jump to MADDR:  \n                (A0=0, B=1, C=110, MADDR=bck2ftch),\n                # SR <- RT2\n                (T5, M7=0, C7),\n                # RT1 <- PC  \n                (T2, C4),\n                # RT2 <- IR(S10)\n                (SE=1, OFFSET=0, SIZE=01010, T3, C5),\n                # Jump to fetch\n                (MA=1, MB=1, MC=1, SELCOP=1010, T6, M2=0, C2, A0=1, B=1, C=0),\n      bck2ftch: (T5, M7=0, C7),\n                (A0=1, B=1, C=0)\n            }\n}\n\njal U16 {\n\t    co=100001,\n\t    nwords=1,\n\t    U16=address(15,0)abs,\n\t    {\n     # BR[R1] <- PC:  \n\t\t(T2, MR=1, SELC=00001, LC),\n     # PC <- IR(U16): \n\t\t(SIZE=10000, OFFSET=00000, T3, M2=0, C2, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\njr_ra {\n\t    co=100010,\n\t    nwords=1,\n\t    {\n     # PC <- BR[R1]:  \n\t\t(MR=1, SELA=00001, T9, M2=0, C2, \n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nhalt {\n\t    co=100011,\n\t    nwords=1,\n\t    {\n     # PC <- BR[R0]:  \n\t\t(MR=1, SELA=00000, T9, M2=0, C2),\n     # SR <- BR[R0]:  \n\t\t(MR=1, SELA=00000, T9, M7=0, C7)\n\t    }\n}\n\nxchb (RRE1) (RRE2) {\n\t    co=011010,\n      nwords=1,\n      RRE1=reg(25,21),  \n      RRE2=reg(20,16),\n\t    {\n     # MAR <- BR[RRE1]:  \n\t\t(SELA=10101, T9, C0),\n     #: MBR <- Memory [MAR]:  \n\t\t(TA, R, BW=00, M1=1, C1),\n     #: RT1 <- MBR: \n\t\t(T1, C4),\n     #: MAR <- BR[RRE2]: \n\t\t(SELB=10000, T10, C0),\n     #: MBR <- Memory [MAR] \n\t\t(TA, R, BW=00, M1=1, C1),\n     #: MAR <- BR[RRE1]: \n\t\t(SELA=10101, T9, C0),\n     #: Memory [MAR] <- MBR \n\t\t(TA, TD, W, BW=00),\n     #: MBR <- RT1\n\t\t(T4, M1=0, C1),\n     #: MBR <- BR[RRE2]\n\t\t(SELB=10000, T10, C0),\n     #: Memory [MAR] <- MBR\n\t\t(TA, W, TD, BW=00,\n     # Jump to fetch: \n    A0, B, C=0)\n\t    }\n}\n\nregisters {\n        0=(x0, zero, R0),\n  \t\t\t1=(x1, ra, R1),\n  \t\t\t2=(x2, sp, R2)(stack_pointer)\n  \t\t\t3=(x3, gp, R3),\n  \t\t\t4=(x4, tp, R4),\n  \t\t\t5=(x5, t0, R5),\n  \t\t\t6=(x6, t1, R6),\n  \t\t\t7=(x7, t2, R7),\n  \t\t\t8=(x8, fp, R8),\n \t\t\t  9=(x9, s1, R9),\n  \t\t\t10=(x10, a0, R10),\n  \t\t\t11=(x11, a1, R11),\n  \t\t\t12=(x12, a2, R12),\n  \t\t\t13=(x13, a3, R13),\n  \t\t\t14=(x14, a4, R14),\n  \t\t\t15=(x15, a5, R15),\n  \t\t\t16=(x16, a6, R16),\n  \t\t\t17=(x17, a7, R17),\n  \t\t\t18=(x18, s2, R18),\n  \t\t\t19=(x19, s3, R19),\n  \t\t\t20=(x20, s4, R20),\n  \t\t\t21=(x21, s5, R21),\n  \t\t\t22=(x22, s6, R22),\n  \t\t\t23=(x23, s7, R23),\n  \t\t\t24=(x24, s8, R24),\n  \t\t\t25=(x25, s9, R25),\n  \t\t\t26=(x26, s10, R26),\n  \t\t\t27=(x27, s11, R27),\n  \t\t\t28=(x28, t3, R28),\n  \t\t\t29=(x29, t4, R29),\n  \t\t\t30=(x30, t5, R30),\n  \t\t\t31=(x31, t6, R31),\n}",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "firmware",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## assembly",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "#\n# WepSIM (https://wepsim.github.io/wepsim/)\n#\n\n.data\n    msg:   .byte 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,1,0,1,0,1,1,1, 0,1,1,1,0,1,1,1, 0,1,0,1,0,0,0,0,\n                 0,1,0,1,0,1,0,1, 0,1,0,1,0,1,0,1, 0,1,0,1,0,0,0,0,\n                 0,1,1,1,0,1,1,1, 0,1,1,1,0,1,1,1, 0,1,1,1,0,0,0,0,\n                 0,1,0,1,0,1,0,1, 0,1,0,0,0,1,0,0, 0,0,0,1,0,0,0,0,\n                 0,1,0,1,0,1,0,1, 0,1,0,0,0,1,0,0, 0,1,1,1,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n\n                 0,1,0,1,0,1,1,1, 0,1,1,1,0,1,1,1, 0,0,0,0,0,0,0,0,\n                 0,1,0,1,0,1,0,0, 0,1,0,1,0,1,0,1, 0,0,0,0,0,0,0,0,\n                 0,1,1,1,0,1,1,1, 0,1,1,1,0,1,0,1, 0,0,0,0,0,0,0,0,\n                 0,0,0,1,0,1,0,0, 0,1,0,1,0,1,1,0, 0,0,0,0,0,0,0,0,\n                 0,1,1,1,0,1,1,1, 0,1,0,1,0,1,0,1, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n\n                 0,1,1,1,0,1,1,1, 0,1,1,1,0,1,1,1, 0,0,1,0,0,0,0,0,\n                 0,0,0,1,0,1,0,1, 0,0,0,1,0,0,0,1, 0,0,1,0,0,0,0,0,\n                 0,1,1,1,0,1,0,1, 0,1,1,1,0,1,1,1, 0,0,1,0,0,0,0,0,\n                 0,1,0,0,0,1,0,1, 0,1,0,0,0,1,0,0, 0,0,0,0,0,0,0,0,\n                 0,1,1,1,0,1,1,1, 0,1,1,1,0,1,1,1, 0,0,1,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,\n                 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0\n\n.text\n   main:   \n     lui a0 msg\n     jal demo\n     halt\n   demo:\n     add t4 zero x1 #store the value of ra to retrieve it after the execution of the function\n     lui t0 0 # i (rows)\n     lui t1 1 # random register with value 1 (to increment using add)\n     lui t2 23 # loop limit\n     for1: beq t0 t2 finished\n           add t3 t0 t1 # j columns (from i+1 to 23 as diagonal elements don't change)\n     for2: beq t3 t2 next \n           lui t5 24 # value 24 to move between rows\n           mul_add t5 t5 t0 t3 # value to add to t0 in order to select i,j-th byte\n           add t5 a0 t5 # now t5 contains address of i,j-byte\n           lui t6 24 # same steps as below to make t6 refer to the address of the j,i-th byte\n           mul_add t6 t6 t3 t0\n           add t6 a0 t6\n           xchb (t5) (t6) # exchange bytes (i,j <-> j,i)\n           add t3 t3 t1\n           lui x1 for2 # j for2  :: pc <- ra = x1 = for2\n           jr_ra \n     next: add t0 t0 t1\n           lui x1 for1\n           jr_ra  # j for1, :: pc <- ra = x1 = for1\n     finished: lui a0 1\n     \t\t\t # Dev Matrix display:\n           lui t5 msg\n           out t5 0x3108\n           lui t5 0x20\n           out t5 0x3104\n           # x1 <- original ra of 'jal demo' instruction: \n           add x1 zero t4\n           jr_ra\n           ",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "assembly",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## state_current",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "{\n  \"time\": 1670184521830,\n  \"title\": \"clock 1 @ &#181;address 0\",\n  \"title_short\": \"clock 1,<br>&#181;add 0\",\n  \"content\": \"register R2 = 0x100000; register PC = 0x8000; memory 0x1018 = 0x1000100; memory 0x101c = 0x1010100; memory 0x1020 = 0x1010100; memory 0x1024 = 0x1010100; memory 0x1028 = 0x1000100; memory 0x1030 = 0x1000100; memory 0x1034 = 0x1000100; memory 0x1038 = 0x1000100; memory 0x103c = 0x1000100; memory 0x1040 = 0x1000100; memory 0x1048 = 0x1010100; memory 0x104c = 0x1010100; memory 0x1050 = 0x1010100; memory 0x1054 = 0x1010100; memory 0x1058 = 0x1010100; memory 0x1060 = 0x1000100; memory 0x1064 = 0x1000100; memory 0x1068 = 0x100; memory 0x106c = 0x100; memory 0x1070 = 0x1000000; memory 0x1078 = 0x1000100; memory 0x107c = 0x1000100; memory 0x1080 = 0x100; memory 0x1084 = 0x100; memory 0x1088 = 0x1010100; memory 0x10c0 = 0x1000100; memory 0x10c4 = 0x1010100; memory 0x10c8 = 0x1010100; memory 0x10cc = 0x1010100; memory 0x10d8 = 0x1000100; memory 0x10dc = 0x100; memory 0x10e0 = 0x1000100; memory 0x10e4 = 0x1000100; memory 0x10f0 = 0x1010100; memory 0x10f4 = 0x1010100; memory 0x10f8 = 0x1010100; memory 0x10fc = 0x1000100; memory 0x1108 = 0x1000000; memory 0x110c = 0x100; memory 0x1110 = 0x1000100; memory 0x1114 = 0x10100; memory 0x1120 = 0x1010100; memory 0x1124 = 0x1010100; memory 0x1128 = 0x1000100; memory 0x112c = 0x1000100; memory 0x1168 = 0x1010100; memory 0x116c = 0x1010100; memory 0x1170 = 0x1010100; memory 0x1174 = 0x1010100; memory 0x1178 = 0x10000; memory 0x1180 = 0x1000000; memory 0x1184 = 0x1000100; memory 0x1188 = 0x1000000; memory 0x118c = 0x1000000; memory 0x1190 = 0x10000; memory 0x1198 = 0x1010100; memory 0x119c = 0x1000100; memory 0x11a0 = 0x1010100; memory 0x11a4 = 0x1010100; memory 0x11a8 = 0x10000; memory 0x11b0 = 0x100; memory 0x11b4 = 0x1000100; memory 0x11b8 = 0x100; memory 0x11bc = 0x100; memory 0x11c8 = 0x1010100; memory 0x11cc = 0x1010100; memory 0x11d0 = 0x1010100; memory 0x11d4 = 0x1010100; memory 0x11d8 = 0x10000; memory 0x8000 = 0x49400000; memory 0x8004 = 0x1000; memory 0x8008 = 0x84008010; memory 0x800c = 0x8c000000; memory 0x8010 = 0x63a00800; memory 0x8014 = 0x48a00000; memory 0x801c = 0x48c00000; memory 0x8020 = 0x1; memory 0x8024 = 0x48e00000; memory 0x8028 = 0x17; memory 0x802c = 0x34a7004c; memory 0x8030 = 0x63853000; memory 0x8034 = 0x37870034; memory 0x8038 = 0x4bc00000; memory 0x803c = 0x18; memory 0x8040 = 0x67de2f00; memory 0x8044 = 0x63caf000; memory 0x8048 = 0x4be00000; memory 0x804c = 0x18; memory 0x8050 = 0x67ffe140; memory 0x8054 = 0x63eaf800; memory 0x8058 = 0x6bdf0000; memory 0x805c = 0x639c3000; memory 0x8060 = 0x48200000; memory 0x8064 = 0x8034; memory 0x8068 = 0x88000000; memory 0x806c = 0x60a53000; memory 0x8070 = 0x48200000; memory 0x8074 = 0x802c; memory 0x8078 = 0x88000000; memory 0x807c = 0x49400000; memory 0x8080 = 0x1; memory 0x8084 = 0x4bc00000; memory 0x8088 = 0x1000; memory 0x808c = 0x7c03108; memory 0x8090 = 0x4bc00000; memory 0x8094 = 0x20; memory 0x8098 = 0x7c03104; memory 0x809c = 0x6020e800; memory 0x80a0 = 0x88000000; \"\n}",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "state_current",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## state_history",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "[]",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "state_history",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## record",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "[]",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "record",
+        "type": "object",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## tag",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "4/12/2022, 21:08:31",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "tag",
+        "type": "string",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": "## notify",
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": "true",
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "name": "notify",
+        "type": "boolean",
+        "collapsed": false,
+        "deletable": false,
+        "editable": false
+      }
+    }
+  ]
+}
